@@ -13,7 +13,7 @@ from ShasaBot.pyrogramee.dark import get_arg
 async def song(client, message):
     message.chat.id
     message.from_user["id"]
-    args = get_arg(message) + " " + "song"
+    args = f'{get_arg(message)} song'
     if args.startswith(" "):
         await message.reply("<b>Enter song name❗</b>")
         return ""

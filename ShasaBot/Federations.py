@@ -67,10 +67,7 @@ def is_user_fed_admin(fed_id, user_id):
     fed_admins = sql.all_fed_users(fed_id)
     if fed_admins is False:
         return False
-    if int(user_id) in fed_admins or int(user_id) == OWNER_ID:
-        return True
-    else:
-        return False
+    return int(user_id) in fed_admins or int(user_id) == OWNER_ID
 
 
 def is_user_fed_owner(fed_id, user_id):
@@ -81,31 +78,27 @@ def is_user_fed_owner(fed_id, user_id):
     if getfedowner is None or getfedowner is False:
         return False
     getfedowner = getfedowner["owner"]
-    if str(user_id) == getfedowner or int(user_id) == OWNER_ID:
-        return True
-    else:
-        return False
+    return str(user_id) == getfedowner or int(user_id) == OWNER_ID
 
 
 
 @register(pattern="^/newfed ?(.*)")
 async def new(event):
- if not event.is_private:
-  return await event.reply("Create your federation in my PM - not in a group.")
- name = event.pattern_match.group(1)
- fedowner = sql.get_user_owner_fed_full(event.sender_id)
- if fedowner:
-    for f in fedowner:
-            text = "{}".format(f["fed"]["fname"])
-    return await event.reply(f"You already have a federation called `{text}` ; you can't create another. If you would like to rename it, use /renamefed.")
- if not name:
-  return await event.reply("You need to give your federation a name! Federation names can be up to 64 characters long.")
- if len(name) > 64:
-  return await event.reply("Federation names can only be upto 64 charactors long.")
- fed_id = str(uuid.uuid4())
- fed_name = name
- x = sql.new_fed(event.sender_id, fed_name, fed_id)
- return await event.reply(f"Created new federation with FedID: `{fed_id}`.\nUse this ID to join the federation! eg:\n`/joinfed {fed_id}`")
+    if not event.is_private:
+     return await event.reply("Create your federation in my PM - not in a group.")
+    name = event.pattern_match.group(1)
+    if fedowner := sql.get_user_owner_fed_full(event.sender_id):
+        for f in fedowner:
+                text = "{}".format(f["fed"]["fname"])
+        return await event.reply(f"You already have a federation called `{text}` ; you can't create another. If you would like to rename it, use /renamefed.")
+    if not name:
+     return await event.reply("You need to give your federation a name! Federation names can be up to 64 characters long.")
+    if len(name) > 64:
+     return await event.reply("Federation names can only be upto 64 charactors long.")
+    fed_id = str(uuid.uuid4())
+    fed_name = name
+    x = sql.new_fed(event.sender_id, fed_name, fed_id)
+    return await event.reply(f"Created new federation with FedID: `{fed_id}`.\nUse this ID to join the federation! eg:\n`/joinfed {fed_id}`")
 
 @register(pattern="^/delfed")
 async def smexy(event):
@@ -261,20 +254,20 @@ ShasaBot Features
 """
 @tbot.on(events.CallbackQuery(pattern=r"fkfed(\_(.*))"))
 async def smex_fed(event):
-  tata = event.pattern_match.group(1)
-  data = tata.decode()
-  input = data.split("_", 1)[1]
-  user, owner, fed_id= input.split("|")
-  user = user.strip()
-  name = owner.strip()
-  fed_id = fed_id.strip()
-  rt = await tbot(GetFullUserRequest(int(user)))
-  fname = rt.user.first_name
-  if not event.sender_id == int(user):
-    return await event.answer("You are not the user being fpromoted")
-  res = sql.user_join_fed(fed_id, int(user))
-  if res:
-     return await event.edit(f"User [{fname}](tg://user?id={user}) is now an admin of {name} ({fed_id})")
+    tata = event.pattern_match.group(1)
+    data = tata.decode()
+    input = data.split("_", 1)[1]
+    user, owner, fed_id= input.split("|")
+    user = user.strip()
+    name = owner.strip()
+    fed_id = fed_id.strip()
+    rt = await tbot(GetFullUserRequest(int(user)))
+    fname = rt.user.first_name
+    if event.sender_id != int(user):
+        return await event.answer("You are not the user being fpromoted")
+    res = sql.user_join_fed(fed_id, int(user))
+    if res:
+       return await event.edit(f"User [{fname}](tg://user?id={user}) is now an admin of {name} ({fed_id})")
 
 """
 Fully Written by RoseLoverX
@@ -323,77 +316,74 @@ async def fd(event):
  
 @register(pattern="^/fedinfo ?(.*)")
 async def info(event):
- if not event.is_private:
-   if not await is_admin(event, event.sender_id):
-     return await event.reply("This command can only be used in private.")
- input = event.pattern_match.group(1)
- fedowner = sql.get_user_owner_fed_full(event.sender_id)
- if not input:
-  if not fedowner:
-   return await event.reply("You need to give me a FedID to check, or be a federation creator to use this command!")
- if input:
-   fed_id = input
-   info = sql.get_fed_info(fed_id)
-   if not info:
-      return await event.reply("There is no federation with this FedID.")
-   name = info["fname"]
- elif fedowner:
-   for f in fedowner:
-            fed_id = f["fed_id"]
-            name = f["fed"]["fname"]
-   info = sql.get_fed_info(fed_id)
- if info:
-  owner = int(info["owner"])
-  getfban = sql.get_all_fban_users(fed_id)
-  getfchat = sql.all_fed_chats(fed_id)
-  FEDADMIN = sql.all_fed_users(fed_id)
-  TotalAdminFed = len(FEDADMIN)
-  
-  caption = "Fed info:\n"
-  caption += f"FedID: `{fed_id}`\n"
-  caption += f"Name: {name}\n"
-  caption += f"Creator: [this person](tg://user?id={owner}) (`{owner}`)\n"
-  caption += f"Number of admins: `{TotalAdminFed}`\n"
-  caption += f"Number of bans: `{len(getfban)}`\n"
-  caption += f"Number of connected chats: `{len(getfchat)}`\n"
-  try:
-     subs = sql.get_subscriber(fed_id)
-  except:
-     subs = []
-  caption += f"Number of subscribed feds: `{len(subs)}`"
-  try:
-    getmy = sql.get_mysubs(fed_id)
-  except:
-    getmy = []
-  if len(getmy) == 0:
-   caption += "\n\nThis federation is not subscribed to any other feds."
-  else:
-     caption += "\n\nSubscribed to the following feds:"
-     for x in getmy:
-                nfo = sql.get_fed_info(x)
-                nme = nfo["fname"]
-                caption += f"\n- {nme} (`{x}`)"
-  buttons = Button.inline("Check Fed Admins", data="fedadm_{}".format(fed_id))
-  await tbot.send_message(event.chat_id, caption, buttons=buttons)
+    if not event.is_private and not await is_admin(event, event.sender_id):
+        return await event.reply("This command can only be used in private.")
+    input = event.pattern_match.group(1)
+    fedowner = sql.get_user_owner_fed_full(event.sender_id)
+    if not input and not fedowner:
+        return await event.reply("You need to give me a FedID to check, or be a federation creator to use this command!")
+    if input:
+      fed_id = input
+      info = sql.get_fed_info(fed_id)
+      if not info:
+         return await event.reply("There is no federation with this FedID.")
+      name = info["fname"]
+    elif fedowner:
+      for f in fedowner:
+               fed_id = f["fed_id"]
+               name = f["fed"]["fname"]
+      info = sql.get_fed_info(fed_id)
+    if info:
+        owner = int(info["owner"])
+        getfban = sql.get_all_fban_users(fed_id)
+        getfchat = sql.all_fed_chats(fed_id)
+        FEDADMIN = sql.all_fed_users(fed_id)
+        TotalAdminFed = len(FEDADMIN)
+
+        caption = "Fed info:\n"
+        caption += f"FedID: `{fed_id}`\n"
+        caption += f"Name: {name}\n"
+        caption += f"Creator: [this person](tg://user?id={owner}) (`{owner}`)\n"
+        caption += f"Number of admins: `{TotalAdminFed}`\n"
+        caption += f"Number of bans: `{len(getfban)}`\n"
+        caption += f"Number of connected chats: `{len(getfchat)}`\n"
+        try:
+           subs = sql.get_subscriber(fed_id)
+        except:
+           subs = []
+        caption += f"Number of subscribed feds: `{len(subs)}`"
+        try:
+          getmy = sql.get_mysubs(fed_id)
+        except:
+          getmy = []
+        if not getmy:
+            caption += "\n\nThis federation is not subscribed to any other feds."
+        else:
+            caption += "\n\nSubscribed to the following feds:"
+            for x in getmy:
+                       nfo = sql.get_fed_info(x)
+                       nme = nfo["fname"]
+                       caption += f"\n- {nme} (`{x}`)"
+        buttons = Button.inline("Check Fed Admins", data="fedadm_{}".format(fed_id))
+        await tbot.send_message(event.chat_id, caption, buttons=buttons)
 
 
 
 @tbot.on(events.CallbackQuery(pattern=r"fedadm(\_(.*))"))
 async def smex_fed(event):
-  if event.is_group:
-    if not await is_admin(event, event.sender_id):
-      return await event.answer("You need to be an admin to do this")
-  await event.edit(buttons=None)
-  tata = event.pattern_match.group(1)
-  data = tata.decode()
-  input = data.split("_", 1)[1]
-  fed_id = input
-  info = sql.get_fed_info(fed_id)
-  try:
+    if event.is_group and not await is_admin(event, event.sender_id):
+        return await event.answer("You need to be an admin to do this")
+    await event.edit(buttons=None)
+    tata = event.pattern_match.group(1)
+    data = tata.decode()
+    input = data.split("_", 1)[1]
+    fed_id = input
+    info = sql.get_fed_info(fed_id)
+    try:
         text = "Admins in federation '{}':\n".format(info["fname"])
         owner = await tbot.get_entity(int(info["owner"]))
         try:
-            owner_name = owner.first_name + " " + owner.last_name
+            owner_name = f'{owner.first_name} {owner.last_name}'
         except:
             owner_name = owner.first_name
         text += f"- [{owner_name}](tg://user?id={owner.id}) (`{owner.id}`)\n"
@@ -406,9 +396,9 @@ async def smex_fed(event):
             text += f"- [{unamee}](tg://user?id={user.id}) (`{user.id}`)"
           except Exception:
             text += f"- {x}/n"
-  except Exception as e:
-   print(e)
-  await event.reply(text)
+    except Exception as e:
+     print(e)
+    await event.reply(text)
 
 
 @register(pattern="^/fban ?(.*)")
